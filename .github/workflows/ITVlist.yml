@@ -5,7 +5,7 @@ on:
     - cron: "0 9,21 * * *"
   workflow_dispatch:
 
-# 🚀 新增权限声明：明确告知 GitHub 赋予此工作流写入文件的权限
+# 明确告知 GitHub 赋予此工作流写入文件的权限
 permissions:
   contents: write
 
@@ -35,18 +35,18 @@ jobs:
           python ITVlist.py
           echo "=== Finished ITVlist.py ==="
 
-      # 🚀 核心修改步骤
+      # 修正：精简推送通道，修正机器人身份
       - name: Commit and push results
         run: |
-          git config --local user.email "github-actions[bot]@://github.com"
           git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@://github.com"
           git add itvlist.txt
           
           # 检查是否有内容变更，避免产生空的提交
           if ! git diff --staged --quiet; then
             git commit -m "自定更新： itvlist.txt"
-            # 携带强力加密令牌推送，解决 403 报错
-            git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@://github.com{{ github.repository }}.git" HEAD:main --force
+            # 使用原生的 origin 远程库安全推送，无需手动拼接带 Token 的错误 URL
+            git push origin HEAD:main
           else
             echo "No changes to commit"
           fi
