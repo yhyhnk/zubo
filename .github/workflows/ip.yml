@@ -5,18 +5,22 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch:          # 手动触发
 
+# 🚀 修复1：从系统顶层为自动化容器开启写入权限，解决 403 报错
+permissions:
+  contents: write
+
 jobs:
   fetch-and-push:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # 升级到最新稳定版
         with:
           persist-credentials: true
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # 升级到最新稳定版
         with:
           python-version: "3.11"
 
@@ -25,18 +29,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
+      # 🚀 修复2：在更新和安装 ffmpeg 前清除缓存并强制同步 2026 最新包索引，防止 404 结构脱节
       - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: |
+          sudo apt-get clean
+          sudo apt-get update --fix-missing
+          sudo apt-get install -y ffmpeg
 
       - name: Run fofa_fetch.py
         run: python fofa_fetch.py
 
+      # 🚀 修复3：通过注入隐式密钥彻底重写推送通道
       - name: Commit and push changes
         run: |
           git config --global user.name "github-actions"
-          git config --global user.email "github-actions@users.noreply.github.com"
+          git config --global user.email "github-actions@://github.com"
           git add 计数.txt
           git add ip/*.txt || true
           git add IPTV.txt || true
-          git commit -m "自动更新：计数、IP文件、IPTV.txt" || echo "⚠️ 无需提交"
-          git push origin main || echo "⚠️ 推送失败"
+          
+          if ! git diff --staged --quiet; then
+            git commit -m "自动更新：计数、IP文件、IPTV.txt"
+            # 携带动态加密令牌安全推送
+            git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@://github.com{{ github.repository }}.git" HEAD:main
+          else
+            echo "⚠️ 无需提交"
+          fi
